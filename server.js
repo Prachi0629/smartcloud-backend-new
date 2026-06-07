@@ -1,0 +1,58 @@
+const express = require('express');
+
+const cors = require('cors');
+
+require('dotenv').config();
+
+const authRoutes = require('./routes/auth');
+
+const bucketRoutes = require('./routes/buckets');
+
+const fileRoutes = require('./routes/files');
+
+const billingRoutes = require('./routes/billing');
+
+const app = express();
+
+
+console.log('AUTH:', typeof authRoutes);
+
+console.log('BUCKET:', typeof bucketRoutes);
+
+console.log('FILES:', typeof fileRoutes);
+
+console.log('BILLING:', typeof billingRoutes);
+
+
+app.use(cors());
+
+app.use(express.json());
+
+app.use(
+  '/uploads',
+  express.static('uploads')
+);
+
+app.use('/api/auth', authRoutes);
+
+app.use('/api/buckets', bucketRoutes);
+
+app.use('/api/files', fileRoutes);
+
+app.use('/api/billing', billingRoutes);
+
+app.get('/', (req, res) => {
+
+  res.send('Server Running');
+
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
+});
