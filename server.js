@@ -14,6 +14,9 @@ const billingRoutes = require('./routes/billing');
 
 const app = express();
 
+app.get('/', (req, res) => {
+  res.send('Server Running');
+});
 
 console.log('AUTH:', typeof authRoutes);
 
@@ -40,13 +43,13 @@ app.get('/test-env', (req, res) => {
   });
 });
 
-app.use('/api/auth', authRoutes);
+//app.use('/api/auth', authRoutes);
 
-app.use('/api/buckets', bucketRoutes);
+//app.use('/api/buckets', bucketRoutes);
 
-app.use('/api/files', fileRoutes);
+//app.use('/api/files', fileRoutes);
 
-app.use('/api/billing', billingRoutes);
+//app.use('/api/billing', billingRoutes);
 
 app.get('/', (req, res) => {
 
