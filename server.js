@@ -33,6 +33,13 @@ app.use(
   express.static('uploads')
 );
 
+app.get('/test-env', (req, res) => {
+  res.json({
+    db: process.env.DATABASE_URL ? 'FOUND' : 'MISSING',
+    jwt: process.env.JWT_SECRET ? 'FOUND' : 'MISSING'
+  });
+});
+
 app.use('/api/auth', authRoutes);
 
 app.use('/api/buckets', bucketRoutes);
@@ -46,5 +53,8 @@ app.get('/', (req, res) => {
   res.send('Server Running');
 
 });
+
+
+
 
 module.exports=app;
