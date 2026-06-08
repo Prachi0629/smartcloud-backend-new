@@ -46,14 +46,13 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (err) {
+  console.error("REGISTER ERROR:", err);
 
-    console.log('REGISTER ERROR:', err);
-
-    res.status(500).json({
-      message: 'Server Error'
-    });
-
-  }
+  res.status(500).json({
+    message: err.message,
+    stack: err.stack
+  });
+}
 
 });
 
