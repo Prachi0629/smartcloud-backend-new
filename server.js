@@ -1,12 +1,17 @@
 const express = require("express");
-const cors = require("cors");
 const pool = require('./db');
 const app = express();
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
-}));
+const cors = require("cors");
+
+app.use(
+  cors({
+    origin: "https://smart-cloud-new-project.vercel.app",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
+  })
+);
+
 app.use(express.json());
 
 console.log("SERVER STARTED");
@@ -20,6 +25,8 @@ app.get('/test-db', async (req, res) => {
     res.status(500).json(err.message);
   }
 });
+
+
 
 
 try {
