@@ -3,14 +3,17 @@ const cors = require("cors");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
 app.use(express.json());
 
 console.log("SERVER STARTED");
 
 try {
   const authRoutes = require("./routes/auth");
-  console.log("AUTH ROUTES LOADED");
+ console.log("ENV CHECK:", process.env.DATABASE_URL ? "DB OK" : "DB MISSING");
   app.use("/api/auth", authRoutes);
 } catch (err) {
   console.error("AUTH ERROR:", err);
