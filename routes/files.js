@@ -1,7 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
-
+const supabase = require('../supabase');
 const multer = require('multer');
 
 const pool = require('../db');
@@ -13,43 +13,9 @@ const auth =
 /* MULTER STORAGE */
 /* ===================================== */
 
-const storage =
-  multer.diskStorage({
-
-    destination:
-      function (
-        req,
-        file,
-        cb
-      ) {
-
-        cb(
-          null,
-          'uploads/'
-        );
-
-      },
-
-    filename:
-      function (
-        req,
-        file,
-        cb
-      ) {
-
-        cb(
-          null,
-          Date.now() +
-            '-' +
-            file.originalname
-        );
-
-      }
-
-  });
-
-const upload =
-  multer({ storage });
+const upload = multer({
+  storage: multer.memoryStorage()
+});
 
 /* ===================================== */
 /* UPLOAD FILE */
@@ -60,27 +26,50 @@ router.post(
   auth,
   upload.single('file'),
   async (req, res) => {
-
     try {
 
-      const bucketId =
-        req.params.bucketId;
+      const bucketId = req.params.bucketId;
 
-      const file =
-        req.file;
+      const file = req.file;
 
       if (!file) {
-
         return res.status(400).json({
-          message:
-            'No file uploaded'
+          message: 'No file uploaded'
         });
-
       }
+
+      const uniqueName =
+        Date.now() +
+        '-' +
+        file.originalname;
+
+      const { data, error } =
+        await supabase.storage
+          .from('smartcloud-files')
+          .upload(
+            uniqueName,
+            file.buffer,
+            {
+              contentType:
+                file.mimetype
+            }
+          );
+
+      if (error) {
+        throw error;
+      }
+
+      const {
+        data: publicUrlData
+      } = supabase.storage
+        .from('smartcloud-files')
+        .getPublicUrl(uniqueName);
+
+      const publicUrl =
+        publicUrlData.publicUrl;
 
       const result =
         await pool.query(
-
           `
           INSERT INTO files
           (
@@ -91,7 +80,6 @@ router.post(
             file_type,
             is_deleted
           )
-
           VALUES
           (
             $1,
@@ -101,39 +89,31 @@ router.post(
             $5,
             false
           )
-
           RETURNING *
           `,
-
           [
             bucketId,
-
-            /* ORIGINAL FILE NAME */
             file.originalname,
-
-            /* SAVED FILE PATH */
-            `uploads/${file.filename}`,
-
+            publicUrl,
             file.size,
-
             file.mimetype
           ]
-
         );
 
       res.json(result.rows[0]);
 
     } catch (err) {
 
-      console.log(err);
+      console.error(
+        'UPLOAD ERROR:',
+        err
+      );
 
       res.status(500).json({
-        message:
-          'Upload failed'
+        error: err.message
       });
 
     }
-
   }
 );
 
