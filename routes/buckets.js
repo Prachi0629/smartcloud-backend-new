@@ -102,16 +102,14 @@ router.post(
      const userId = req.user.id;
 
 const existing = await pool.query(
-`
-SELECT *
-FROM buckets
-WHERE user_id = $1
-AND LOWER(TRIM(bucket_name))
-=
-LOWER(TRIM($2))
-AND is_deleted = false
-`,
-[userId, bucket_name]
+  `
+  SELECT *
+  FROM buckets
+  WHERE user_id = $1
+  AND LOWER(TRIM(bucket_name)) = LOWER(TRIM($2))
+  AND is_deleted = false
+  `,
+  [userId, bucket_name]
 );
 
       if (
@@ -220,19 +218,17 @@ router.get(
 
     try {
 
-      const result =
-        await pool.query(`
-         const userId = req.user.id;
+     const userId = req.user.id;
 
 const result = await pool.query(
-`
-SELECT *
-FROM buckets
-WHERE user_id = $1
-AND is_deleted = true
-ORDER BY id DESC
-`,
-[userId]
+  `
+  SELECT *
+  FROM buckets
+  WHERE user_id = $1
+  AND is_deleted = true
+  ORDER BY id DESC
+  `,
+  [userId]
 );
 
       res.json(result.rows);
