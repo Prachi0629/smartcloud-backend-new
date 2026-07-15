@@ -4,8 +4,12 @@ const router = express.Router();
 
 const pool = require('../db');
 
-const auth =
-  require('../middleware/authMiddleware');
+const auth = require('../middleware/authMiddleware');
+
+/* Small helper: reject anything that isn't a plain integer id */
+function isValidId(id) {
+  return /^\d+$/.test(String(id));
+}
 
 /* ============================= */
 /* GET ACTIVE BUCKETS */
@@ -18,38 +22,35 @@ router.get(
 
     try {
 
-    const userId = req.user.id;
+      const userId = req.user.id;
 
-const bucketResult = await pool.query(
-  `
-  SELECT *
-  FROM buckets
-  WHERE user_id = $1
-  AND is_deleted = false
-  ORDER BY id DESC
-  `,
-  [userId]
-);
+      const bucketResult = await pool.query(
+        `
+        SELECT *
+        FROM buckets
+        WHERE user_id = $1
+        AND is_deleted = false
+        ORDER BY id DESC
+        `,
+        [userId]
+      );
 
-      const buckets =
-        bucketResult.rows;
+      const buckets = bucketResult.rows;
 
       for (let bucket of buckets) {
 
-        const filesResult =
-          await pool.query(
-            `
-            SELECT *
-            FROM files
-            WHERE bucket_id = $1
-            AND is_deleted = false
-            ORDER BY id DESC
-            `,
-            [bucket.id]
-          );
+        const filesResult = await pool.query(
+          `
+          SELECT *
+          FROM files
+          WHERE bucket_id = $1
+          AND is_deleted = false
+          ORDER BY id DESC
+          `,
+          [bucket.id]
+        );
 
-        bucket.files =
-          filesResult.rows;
+        bucket.files = filesResult.rows;
 
       }
 
@@ -60,8 +61,7 @@ const bucketResult = await pool.query(
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Error loading buckets'
+        message: 'Error loading buckets'
       });
 
     }
@@ -80,94 +80,67 @@ router.post(
 
     try {
 
-      let { bucket_name } =
-        req.body;
+      let { bucket_name } = req.body;
 
-      /* CLEAN TEXT */
-
-      bucket_name =
-        bucket_name.trim();
-
-      if (!bucket_name) {
-
+      if (!bucket_name || typeof bucket_name !== 'string') {
         return res.status(400).json({
-          message:
-            'Bucket name required'
+          message: 'Bucket name required'
         });
-
       }
 
-      /* CHECK DUPLICATE */
+      /* CLEAN TEXT */
+      bucket_name = bucket_name.trim();
 
-     const userId = req.user.id;
-
-const existing = await pool.query(
-  `
-  SELECT *
-  FROM buckets
-  WHERE user_id = $1
-  AND LOWER(TRIM(bucket_name)) = LOWER(TRIM($2))
-  AND is_deleted = false
-  `,
-  [userId, bucket_name]
-);
-
-      if (
-        existing.rows.length > 0
-      ) {
-
+      if (!bucket_name) {
         return res.status(400).json({
-          message:
-            'Bucket already exists'
+          message: 'Bucket name required'
         });
+      }
 
+      const userId = req.user.id;
+
+      /* CHECK DUPLICATE */
+      const existing = await pool.query(
+        `
+        SELECT id
+        FROM buckets
+        WHERE user_id = $1
+        AND LOWER(TRIM(bucket_name)) = LOWER(TRIM($2))
+        AND is_deleted = false
+        `,
+        [userId, bucket_name]
+      );
+
+      if (existing.rows.length > 0) {
+        return res.status(400).json({
+          message: 'Bucket already exists'
+        });
       }
 
       /* INSERT */
-
-      const result =
-        await pool.query(
-          `
-         INSERT INTO buckets
-(
-user_id,
-bucket_name,
-is_deleted
-)
-
-VALUES
-(
-$1,
-$2,
-false
-)
-
-          RETURNING *
-          `,
-          [
-userId,
-bucket_name
-]
-        );
-
-      res.json(
-        result.rows[0]
+      const result = await pool.query(
+        `
+        INSERT INTO buckets (user_id, bucket_name, is_deleted)
+        VALUES ($1, $2, false)
+        RETURNING *
+        `,
+        [userId, bucket_name]
       );
+
+      res.json(result.rows[0]);
 
     } catch (err) {
 
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Bucket creation failed'
+        message: 'Bucket creation failed'
       });
 
     }
 
   }
 );
-
 
 /* ============================= */
 /* MOVE BUCKET TO TRASH */
@@ -180,26 +153,38 @@ router.delete(
 
     try {
 
-      await pool.query(
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      if (!isValidId(id)) {
+        return res.status(400).json({ message: 'Invalid bucket id' });
+      }
+
+      const result = await pool.query(
         `
         UPDATE buckets
         SET is_deleted = true
         WHERE id = $1
+        AND user_id = $2
+        RETURNING id
         `,
-        [req.params.id]
+        [id, userId]
       );
 
-      res.json({
-        success: true
-      });
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message: 'Bucket not found'
+        });
+      }
+
+      res.json({ success: true });
 
     } catch (err) {
 
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Delete failed'
+        message: 'Delete failed'
       });
 
     }
@@ -218,18 +203,18 @@ router.get(
 
     try {
 
-     const userId = req.user.id;
+      const userId = req.user.id;
 
-const result = await pool.query(
-  `
-  SELECT *
-  FROM buckets
-  WHERE user_id = $1
-  AND is_deleted = true
-  ORDER BY id DESC
-  `,
-  [userId]
-);
+      const result = await pool.query(
+        `
+        SELECT *
+        FROM buckets
+        WHERE user_id = $1
+        AND is_deleted = true
+        ORDER BY id DESC
+        `,
+        [userId]
+      );
 
       res.json(result.rows);
 
@@ -238,8 +223,7 @@ const result = await pool.query(
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Error loading trash'
+        message: 'Error loading trash'
       });
 
     }
@@ -258,17 +242,29 @@ router.put(
 
     try {
 
-      const id =
-        req.params.id;
+      const { id } = req.params;
+      const userId = req.user.id;
 
-      await pool.query(
+      if (!isValidId(id)) {
+        return res.status(400).json({ message: 'Invalid bucket id' });
+      }
+
+      const bucketResult = await pool.query(
         `
         UPDATE buckets
         SET is_deleted = false
         WHERE id = $1
+        AND user_id = $2
+        RETURNING id
         `,
-        [id]
+        [id, userId]
       );
+
+      if (bucketResult.rows.length === 0) {
+        return res.status(404).json({
+          message: 'Bucket not found'
+        });
+      }
 
       await pool.query(
         `
@@ -279,17 +275,14 @@ router.put(
         [id]
       );
 
-      res.json({
-        success: true
-      });
+      res.json({ success: true });
 
     } catch (err) {
 
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Restore failed'
+        message: 'Restore failed'
       });
 
     }
@@ -308,12 +301,36 @@ router.delete(
 
     try {
 
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      if (!isValidId(id)) {
+        return res.status(400).json({ message: 'Invalid bucket id' });
+      }
+
+      /* Confirm ownership before touching anything */
+      const ownedBucket = await pool.query(
+        `
+        SELECT id
+        FROM buckets
+        WHERE id = $1
+        AND user_id = $2
+        `,
+        [id, userId]
+      );
+
+      if (ownedBucket.rows.length === 0) {
+        return res.status(404).json({
+          message: 'Bucket not found'
+        });
+      }
+
       await pool.query(
         `
         DELETE FROM files
         WHERE bucket_id = $1
         `,
-        [req.params.id]
+        [id]
       );
 
       await pool.query(
@@ -321,28 +338,22 @@ router.delete(
         DELETE FROM buckets
         WHERE id = $1
         `,
-        [req.params.id]
+        [id]
       );
 
-      res.json({
-        success: true
-      });
+      res.json({ success: true });
 
     } catch (err) {
 
       console.log(err);
 
       res.status(500).json({
-        message:
-          'Permanent delete failed'
+        message: 'Permanent delete failed'
       });
 
     }
 
   }
 );
-
-
-
 
 module.exports = router;
