@@ -27,37 +27,47 @@ router.post(
   upload.single('file'),
   async (req, res) => {
     try {
+const bucketId = req.params.bucketId;
+const file = req.file;
 
-      const bucketId = req.params.bucketId;
+if (!file) {
+  return res.status(400).json({
+    message: "No file uploaded"
+  });
+}
 
-      const file = req.file;
+const uniqueName = Date.now() + "-" + file.originalname;
 
-      if (!file) {
-        return res.status(400).json({
-          message: 'No file uploaded'
-        });
-      }
+// Get logged-in user ID
+const userId = req.user.id;
 
-      const uniqueName =
-        Date.now() +
-        '-' +
-        file.originalname;
+// Get bucket name from database
+const bucketResult = await pool.query(
+  "SELECT bucket_name FROM buckets WHERE id = $1",
+  [bucketId]
+);
 
-      const { data, error } =
-        await supabase.storage
-          .from('smartcloud-files')
-          .upload(
-            uniqueName,
-            file.buffer,
-            {
-              contentType:
-                file.mimetype
-            }
-          );
+if (bucketResult.rows.length === 0) {
+  return res.status(404).json({
+    message: "Bucket not found"
+  });
+}
 
-      if (error) {
-        throw error;
-      }
+const bucketName = bucketResult.rows[0].bucket_name;
+
+// Create storage path
+const filePath = `${userId}/${bucketName}/${uniqueName}`;
+
+// Upload to Supabase Storage
+const { data, error } = await supabase.storage
+  .from("smartcloud-files")
+  .upload(filePath, file.buffer, {
+    contentType: file.mimetype
+  });
+
+if (error) {
+  throw error;
+}
 
       const {
         data: publicUrlData
