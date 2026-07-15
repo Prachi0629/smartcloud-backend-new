@@ -18,13 +18,18 @@ router.get(
 
     try {
 
-      const bucketResult =
-        await pool.query(`
-          SELECT *
-          FROM buckets
-          WHERE is_deleted = false
-          ORDER BY id DESC
-        `);
+    const userId = req.user.id;
+
+const bucketResult = await pool.query(
+  `
+  SELECT *
+  FROM buckets
+  WHERE user_id = $1
+  AND is_deleted = false
+  ORDER BY id DESC
+  `,
+  [userId]
+);
 
       const buckets =
         bucketResult.rows;
@@ -94,20 +99,20 @@ router.post(
 
       /* CHECK DUPLICATE */
 
-      const existing =
-        await pool.query(
-          `
-          SELECT *
-          FROM buckets
-          WHERE TRIM(
-            LOWER(bucket_name)
-          ) =
-          TRIM(
-            LOWER($1)
-          )
-          `,
-          [bucket_name]
-        );
+     const userId = req.user.id;
+
+const existing = await pool.query(
+`
+SELECT *
+FROM buckets
+WHERE user_id = $1
+AND LOWER(TRIM(bucket_name))
+=
+LOWER(TRIM($2))
+AND is_deleted = false
+`,
+[userId, bucket_name]
+);
 
       if (
         existing.rows.length > 0
@@ -125,16 +130,26 @@ router.post(
       const result =
         await pool.query(
           `
-          INSERT INTO buckets
-          (
-            bucket_name
-          )
+         INSERT INTO buckets
+(
+user_id,
+bucket_name,
+is_deleted
+)
 
-          VALUES ($1)
+VALUES
+(
+$1,
+$2,
+false
+)
 
           RETURNING *
           `,
-          [bucket_name]
+          [
+userId,
+bucket_name
+]
         );
 
       res.json(
@@ -207,11 +222,18 @@ router.get(
 
       const result =
         await pool.query(`
-          SELECT *
-          FROM buckets
-          WHERE is_deleted = true
-          ORDER BY id DESC
-        `);
+         const userId = req.user.id;
+
+const result = await pool.query(
+`
+SELECT *
+FROM buckets
+WHERE user_id = $1
+AND is_deleted = true
+ORDER BY id DESC
+`,
+[userId]
+);
 
       res.json(result.rows);
 
